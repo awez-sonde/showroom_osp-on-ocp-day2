@@ -355,6 +355,7 @@ show_usage() {
     echo "  data-plane    - Configure compute nodes"
     echo "  validation    - Verify deployment"
     echo "  showroom      - Configure Showroom (optional)"
+    echo "  deploy-rhosp  - Deploy RHOSP 17.1 standalone environment (for adoption)"
     echo "  full          - Run complete deployment (default)"
     echo "  optional      - Enable optional services (Heat, Swift)"
     echo ""
@@ -364,6 +365,7 @@ show_usage() {
     echo "  $0 -c                                 # Check inventory configuration"
     echo "  $0 -d control-plane                   # Dry run of control plane deployment"
     echo "  $0 -v prerequisites                   # Verbose prerequisites installation"
+    echo "  $0 deploy-rhosp                        # Deploy RHOSP 17.1 standalone environment"
     echo "  $0 showroom                           # Configure Showroom only"
     echo "  $0 -b full                            # Run full deployment in background"
     echo "  $0 --follow-logs install-operators    # Run and follow logs in real-time"
@@ -625,6 +627,21 @@ run_deployment() {
         sed -i 's/ansible_python_interpreter: "{{ ansible_playbook_python }}"/ansible_python_interpreter: "\/usr\/bin\/python3.11"/' "$temp_inventory"
     fi
     
+    # Note: We no longer automatically set Python interpreter for remote hosts
+    # Since we replaced community.general.nmcli with command modules, Python 3.7+ is no longer required
+    # Ansible will auto-detect Python 2.7+ or 3.x on remote hosts
+    # Users can optionally set ansible_python_interpreter in their inventory if needed
+    # 
+    # The following code block is commented out to prevent automatic Python interpreter injection:
+    # (This was causing issues when Python 3.11 didn't exist on remote hosts)
+    #
+    # local python_interpreter="/usr/bin/python3.11"
+    # local needs_python_fix=false
+    # 
+    # if [[ "$needs_python_fix" == "true" ]]; then
+    #     print_status "Setting Python interpreter for remote hosts..."
+    #     # Note: This is no longer needed since we use command modules instead of community.general.nmcli
+    
     # If credentials were provided via file, inject them into the inventory
     if [[ -n "${CRED_REGISTRY_USERNAME:-}" ]]; then
         print_status "Injecting credentials from file into inventory..."
@@ -739,6 +756,11 @@ run_deployment() {
         'showroom')
             print_status 'Configuring Showroom...'
             ansible-playbook site.yml --tags showroom $ansible_opts
+            exit_code=$?
+            ;;
+        'deploy-rhosp')
+            print_status 'Deploying RHOSP 17.1 standalone environment...'
+            ansible-playbook site.yml --tags deploy-rhosp $ansible_opts
             exit_code=$?
             ;;
         'full')
